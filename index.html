@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fraud Detection System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:#0f1117;color:#fff}
+.header{background:#1a1a2e;padding:20px 40px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2a2a4a}
+.header h1{font-size:22px;font-weight:600;color:#7c83fd}
+.live{font-size:12px;color:#4ade80;background:#052e16;padding:4px 12px;border-radius:20px}
+.container{max-width:1200px;margin:0 auto;padding:30px 20px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:30px}
+.stat-card{background:#1a1a2e;border:1px solid #2a2a4a;border-radius:12px;padding:20px;text-align:center}
+.stat-value{font-size:28px;font-weight:700;margin-bottom:4px}
+.stat-label{font-size:12px;color:#8888aa}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:#1a1a2e;border:1px solid #2a2a4a;border-radius:12px;padding:24px}
+.card h2{font-size:13px;font-weight:600;color:#8888aa;margin-bottom:20px;text-transform:uppercase;letter-spacing:.05em}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:12px;color:#8888aa;margin-bottom:6px}
+.fg input,.fg select{width:100%;background:#0f1117;border:1px solid #2a2a4a;border-radius:8px;padding:10px 12px;color:#fff;font-size:14px;outline:none}
+.fg input:focus{border-color:#7c83fd}
+.btn{width:100%;padding:12px;border-radius:8px;border:none;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;background:#7c83fd;color:#fff}
+.btn:hover{background:#6366f1}
+.result{margin-top:20px;padding:20px;border-radius:12px;display:none}
+.result.approved{background:#052e16;border:1px solid #16a34a}
+.result.blocked{background:#2d0a0a;border:1px solid #dc2626}
+.result.review{background:#1c1500;border:1px solid #d97706}
+.verdict{font-size:22px;font-weight:700;margin-bottom:8px}
+.risk-bar{height:8px;background:#2a2a4a;border-radius:4px;margin:12px 0;overflow:hidden}
+.risk-fill{height:100%;border-radius:4px;transition:width .8s ease}
+.muted{font-size:13px;color:#8888aa}
+.log{margin-top:16px;max-height:200px;overflow-y:auto}
+.log-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #2a2a4a;font-size:13px}
+.badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;flex-shrink:0}
+.b-a{background:#052e16;color:#4ade80}
+.b-b{background:#2d0a0a;color:#f87171}
+.b-r{background:#1c1500;color:#fbbf24}
+.spinner{display:none;text-align:center;color:#8888aa;font-size:14px;padding:20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;width:18px;height:18px;border:2px solid #2a2a4a;border-top-color:#7c83fd;border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;vertical-align:middle}
+@media(max-width:768px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Fraud Detection System</h1>
+  <span class="live">LIVE</span>
+</div>
+<div class="container">
+  <div class="stats">
+    <div class="stat-card"><div class="stat-value" id="s-total" style="color:#7c83fd">0</div><div class="stat-label">Total Analyzed</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-approved" style="color:#4ade80">0</div><div class="stat-label">Approved</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-blocked" style="color:#f87171">0</div><div class="stat-label">Blocked</div></div>
+    <div class="stat-card"><div class="stat-value" id="s-review" style="color:#fbbf24">0</div><div class="stat-label">Under Review</div></div>
+  </div>
+  <div class="grid">
+    <div class="card">
+      <h2>Transaction Details</h2>
+      <div class="form-row">
+        <div class="fg"><label>Amount (PKR)</label><input type="number" id="amount" value="5000"></div>
+        <div class="fg"><label>Distance from Home (km)</label><input type="number" id="distance" value="10"></div>
+      </div>
+      <div class="form-row">
+        <div class="fg"><label>Hour of Day (0-23)</label><input type="number" id="hour" value="14" min="0" max="23"></div>
+        <div class="fg"><label>Transactions Last Hour</label><input type="number" id="frequency" value="1"></div>
+      </div>
+      <div class="form-row">
+        <div class="fg"><label>Avg Spend Multiplier</label><input type="number" id="multiplier" value="1.2" step="0.1"></div>
+        <div class="fg"><label>Card Age (days)</label><input type="number" id="card_age" value="365"></div>
+      </div>
+      <div class="form-row">
+        <div class="fg"><label>New Merchant?</label><select id="new_merchant"><option value="0">No</option><option value="1">Yes</option></select></div>
+        <div class="fg"><label>Foreign Country?</label><select id="foreign"><option value="0">No</option><option value="1">Yes</option></select></div>
+      </div>
+      <div class="fg"><label>Weekend?</label><select id="weekend"><option value="0">No</option><option value="1">Yes</option></select></div>
+      <button class="btn" onclick="analyze()">Analyze Transaction</button>
+      <div class="spinner" id="loading"><span class="spin"></span>Analyzing...</div>
+      <div class="result" id="result">
+        <div class="verdict" id="verdict-text"></div>
+        <div class="muted" id="score-text"></div>
+        <div class="risk-bar"><div class="risk-fill" id="risk-fill"></div></div>
+        <div class="muted" id="trusted-text"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Live Analytics</h2>
+      <div style="position:relative;height:220px;margin-bottom:20px"><canvas id="chart"></canvas></div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+<script>
+const API="https://fraud-detection-api-production-99bf.up.railway.app";
+let c={total:0,approved:0,blocked:0,review:0};
+const chart=new Chart(document.getElementById("chart").getContext("2d"),{
+  type:"doughnut",
+  data:{labels:["Approved","Blocked","Review"],datasets:[{data:[1,0,0],backgroundColor:["#16a34a","#dc2626","#d97706"],borderWidth:0}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{color:"#8888aa",padding:16,font:{size:12}}}}}
+});
+async function analyze(){
+  const body={
+    amount:parseFloat(document.getElementById("amount").value),
+    distance_from_home:parseFloat(document.getElementById("distance").value),
+    hour:parseInt(document.getElementById("hour").value),
+    frequency_last_hour:parseInt(document.getElementById("frequency").value),
+    avg_spend_multiplier:parseFloat(document.getElementById("multiplier").value),
+    is_new_merchant:parseInt(document.getElementById("new_merchant").value),
+    is_foreign_country:parseInt(document.getElementById("foreign").value),
+    is_weekend:parseInt(document.getElementById("weekend").value),
+    card_age_days:parseInt(document.getElementById("card_age").value)
+  };
+  document.getElementById("loading").style.display="block";
+  document.getElementById("result").style.display="none";
+  try{
+    const res=await fetch(API+"/predict",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const data=await res.json();
+    showResult(data,body.amount);
+  }catch(e){alert("API Error: "+e.message);}
+  document.getElementById("loading").style.display="none";
+}
+function showResult(data,amount){
+  const v=data.verdict,risk=data.risk_score;
+  const colors={APPROVED:"#4ade80",BLOCKED:"#f87171",OTP_REQUIRED:"#fbbf24"};
+  const labels={APPROVED:"APPROVED",BLOCKED:"BLOCKED",OTP_REQUIRED:"UNDER REVIEW"};
+  const cls={APPROVED:"approved",BLOCKED:"blocked",OTP_REQUIRED:"review"};
+  const r=document.getElementById("result");
+  r.style.display="block";
+  r.className="result "+(cls[v]||"review");
+  document.getElementById("verdict-text").style.color=colors[v]||"#fff";
+  document.getElementById("verdict-text").textContent=labels[v]||v;
+  document.getElementById("score-text").textContent="Risk Score: "+risk+"%";
+  document.getElementById("trusted-text").textContent="Trusted User: "+(data.trusted_user?"Yes":"No");
+  const fill=document.getElementById("risk-fill");
+  fill.style.width=risk+"%";
+  fill.style.background=risk<35?"#16a34a":risk<65?"#d97706":"#dc2626";
+  c.total++;
+  if(v==="APPROVED")c.approved++;
+  else if(v==="BLOCKED")c.blocked++;
+  else c.review++;
+  document.getElementById("s-total").textContent=c.total;
+  document.getElementById("s-approved").textContent=c.approved;
+  document.getElementById("s-blocked").textContent=c.blocked;
+  document.getElementById("s-review").textContent=c.review;
+  chart.data.datasets[0].data=[c.approved||1,c.blocked,c.review];
+  chart.update();
+  const badge=v==="APPROVED"?"b-a":v==="BLOCKED"?"b-b":"b-r";
+  const item=document.createElement("div");
+  item.className="log-item";
+  item.innerHTML=`<span class="badge ${badge}">${labels[v]||v}</span><span>PKR ${amount.toLocaleString()}</span><span style="color:#8888aa;margin-left:auto">${risk}% risk</span>`;
+  document.getElementById("log").prepend(item);
+}
+</script>
+</body>
+</html>
